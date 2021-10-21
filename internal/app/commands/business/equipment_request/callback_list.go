@@ -16,8 +16,7 @@ func (c *EquipmentRequestCommander) CallbackList(callback *tgbotapi.CallbackQuer
 		log.Printf("EquipmentRequestCommander.CallbackList: "+
 			"error reading json data for type CallbackListData from "+
 			"input string %v - %v", callbackPath.CallbackData, err)
-		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "Unable to get list of equipment requests for selected page")
-		c.sendMessage(msg)
+		c.sendMessage(callback.Message.Chat.ID, "Unable to get list of equipment requests for selected page")
 		return
 	}
 
@@ -26,6 +25,6 @@ func (c *EquipmentRequestCommander) CallbackList(callback *tgbotapi.CallbackQuer
 		pagination.ListPerPageDefault,
 		parsedData)
 
-	msg := listPagination.GetMessageWithList(callback.Message.Chat.ID)
-	c.sendMessage(msg)
+	msg, buttons := listPagination.GetMessageWithButtons()
+	c.sendMessageWithButtons(callback.Message.Chat.ID, msg, buttons)
 }

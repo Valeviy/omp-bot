@@ -24,7 +24,21 @@ func NewEquipmentRequestCommander(
 	}
 }
 
-func (c *EquipmentRequestCommander) sendMessage(msg tgbotapi.MessageConfig) {
+func (c *EquipmentRequestCommander) sendMessageWithButtons(chatId int64, info string, buttons []tgbotapi.InlineKeyboardButton) {
+	msg := tgbotapi.NewMessage(chatId, info)
+
+	if buttons != nil && len(buttons) > 0 {
+		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(buttons)
+	}
+
+	_, err := c.bot.Send(msg)
+	if err != nil {
+		log.Printf("EquipmentRequestCommander.sendMessageWithButtons: error sending reply message to chat - %v", err)
+	}
+}
+
+func (c *EquipmentRequestCommander) sendMessage(chatId int64, info string) {
+	msg := tgbotapi.NewMessage(chatId, info)
 	_, err := c.bot.Send(msg)
 	if err != nil {
 		log.Printf("EquipmentRequestCommander.sendMessage: error sending reply message to chat - %v", err)

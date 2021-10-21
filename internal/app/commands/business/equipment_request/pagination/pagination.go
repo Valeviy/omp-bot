@@ -32,29 +32,26 @@ func NewListPagination(
 	}
 }
 
-func (l *ListPagination) GetMessageWithList(chatId int64) (msg tgbotapi.MessageConfig) {
+func (l *ListPagination) GetMessageWithButtons() (string, []tgbotapi.InlineKeyboardButton) {
 	outputMsgText := "Here all the equipment requests: \n\n"
 
 	currentPage := l.callbackListData.Page
 	count := l.equipmentRequestService.Count()
 
 	if count == 0 {
-		outputMsgText = "List with equipment requests is empty"
-		return tgbotapi.NewMessage(chatId, outputMsgText)
+		return "List with equipment requests is empty", nil
 	}
 
 	equipmentRequests, err := l.equipmentRequestService.List(currentPage, l.perPage)
 	if err != nil {
 		log.Printf("failed to get list of equipment requests in page %d with limit %d: %v", currentPage, l.perPage, err)
-		return tgbotapi.NewMessage(chatId, "Unable to get list of equipment requests for selected page")
+		return "Unable to get list of equipment requests for selected page", nil
 	}
 
 	for _, eq := range equipmentRequests {
 		outputMsgText += eq.String()
 		outputMsgText += "\n"
 	}
-
-	msg = tgbotapi.NewMessage(chatId, outputMsgText)
 
 	var buttons []tgbotapi.InlineKeyboardButton
 
@@ -88,9 +85,5 @@ func (l *ListPagination) GetMessageWithList(chatId int64) (msg tgbotapi.MessageC
 		buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData("Next page", pageNext.String()))
 	}
 
-	if len(buttons) > 0 {
-		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(buttons)
-	}
-
-	return msg
+	return outputMsgText, buttons
 }

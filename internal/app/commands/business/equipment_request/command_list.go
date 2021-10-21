@@ -11,6 +11,6 @@ func (c *EquipmentRequestCommander) List(inputMessage *tgbotapi.Message) {
 		pagination.ListPerPageDefault,
 		pagination.CallbackListData{Page: 0})
 
-	msg := listPagination.GetMessageWithList(inputMessage.Chat.ID)
-	c.sendMessage(msg)
+	msg, buttons := listPagination.GetMessageWithButtons()
+	c.sendMessageWithButtons(inputMessage.Chat.ID, msg, buttons)
 }
