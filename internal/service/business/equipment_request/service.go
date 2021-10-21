@@ -35,12 +35,7 @@ func (s *DummyEquipmentRequestService) List(page uint64, perPage uint64) ([]busi
 }
 
 func (s *DummyEquipmentRequestService) Get(equipmentRequestId uint64) (*business.EquipmentRequest, error) {
-	for i := range business.AllEquipmentRequests.List {
-		if business.AllEquipmentRequests.List[i].Id == equipmentRequestId {
-			return &business.AllEquipmentRequests.List[i], nil
-		}
-	}
-	return nil, errors.New(fmt.Sprintf("index out of range %d", equipmentRequestId))
+	return s.get(equipmentRequestId)
 }
 
 func (s *DummyEquipmentRequestService) Remove(equipmentRequestId uint64) (bool, error) {
@@ -62,7 +57,7 @@ func (s *DummyEquipmentRequestService) Create(equipmentRequest business.Equipmen
 }
 
 func (s *DummyEquipmentRequestService) Update(equipmentRequestId uint64, equipmentRequest business.EquipmentRequest) error {
-	item, err := s.Get(equipmentRequestId)
+	item, err := s.get(equipmentRequestId)
 	if err != nil {
 		return err
 	}
@@ -79,4 +74,13 @@ func (s *DummyEquipmentRequestService) Update(equipmentRequestId uint64, equipme
 
 func (s *DummyEquipmentRequestService) Count() uint64 {
 	return uint64(len(business.AllEquipmentRequests.List))
+}
+
+func (s *DummyEquipmentRequestService) get(equipmentRequestId uint64) (*business.EquipmentRequest, error) {
+	for i := range business.AllEquipmentRequests.List {
+		if business.AllEquipmentRequests.List[i].Id == equipmentRequestId {
+			return &business.AllEquipmentRequests.List[i], nil
+		}
+	}
+	return nil, errors.New(fmt.Sprintf("index out of range %d", equipmentRequestId))
 }
