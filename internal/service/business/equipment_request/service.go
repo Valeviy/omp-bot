@@ -23,15 +23,15 @@ func NewDummyEquipmentRequestService() *DummyEquipmentRequestService {
 }
 
 func (s *DummyEquipmentRequestService) List(page uint64, perPage uint64) ([]business.EquipmentRequest, error) {
-	start := page * perPage
-	end := start + perPage
+	offset := page * perPage
+	limit := offset + perPage
 	count := s.Count()
-	end = helpers.Min(end, s.Count())
+	limit = helpers.Min(limit, s.Count())
 
-	if start > end || start > count {
+	if offset > limit || offset > count {
 		return nil, errors.New(fmt.Sprintf("out of bounds with page %d and per page %d", page, perPage))
 	}
-	return business.AllEquipmentRequests.List[start:end], nil
+	return business.AllEquipmentRequests.List[offset:limit], nil
 }
 
 func (s *DummyEquipmentRequestService) Get(equipmentRequestId uint64) (*business.EquipmentRequest, error) {
