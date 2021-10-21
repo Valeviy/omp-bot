@@ -10,7 +10,7 @@ import (
 )
 
 func (c *EquipmentRequestCommander) CallbackList(callback *tgbotapi.CallbackQuery, callbackPath path.CallbackPath) {
-	parsedData := pagination.CallbackListData{}
+	var parsedData pagination.CallbackListData
 	err := json.Unmarshal([]byte(callbackPath.CallbackData), &parsedData)
 	if err != nil {
 		log.Printf("EquipmentRequestCommander.CallbackList: "+

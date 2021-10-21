@@ -11,7 +11,7 @@ import (
 func (c *EquipmentRequestCommander) New(inputMessage *tgbotapi.Message) {
 	args := inputMessage.CommandArguments()
 
-	parsedData := business.EquipmentRequest{}
+	var parsedData business.EquipmentRequest
 	err := json.Unmarshal([]byte(args), &parsedData)
 	if err != nil {
 		log.Printf("invalid format of equipmen request json entity %s: %v", args, err)

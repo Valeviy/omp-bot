@@ -28,7 +28,7 @@ func (c *EquipmentRequestCommander) Edit(inputMessage *tgbotapi.Message) {
 		return
 	}
 
-	updateData := business.EquipmentRequest{}
+	var updateData business.EquipmentRequest
 	err = json.Unmarshal([]byte(updateParts[1]), &updateData)
 	if err != nil {
 		log.Printf("invalid format of equipmen request json entity %s: %v", args, err)
