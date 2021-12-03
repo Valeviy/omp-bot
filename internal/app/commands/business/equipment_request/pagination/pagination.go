@@ -1,30 +1,35 @@
 package pagination
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/ozonmp/omp-bot/internal/app/path"
+	"github.com/ozonmp/omp-bot/internal/logger"
 	"github.com/ozonmp/omp-bot/internal/service/business/equipment_request"
-	"log"
 )
 
+const listPaginationLogTag = "ListPagination"
+
+//Pagination is an interface for messages with pagination
 type Pagination interface {
-	GetList(chatId int64) (msg tgbotapi.MessageConfig)
+	GetMessageWithButtons(ctx context.Context) (string, []tgbotapi.InlineKeyboardButton)
 }
 
-const ListPerPageDefault = 2
-
+//ListPagination is a list with pagination buttons
 type ListPagination struct {
 	equipmentRequestService equipment_request.EquipmentRequestService
 	perPage                 uint64
 	callbackListData        CallbackListData
 }
 
+//NewListPagination returns a new ListPagination
 func NewListPagination(
 	equipmentRequestService equipment_request.EquipmentRequestService,
 	perPage uint64,
 	callbackListData CallbackListData,
-) *ListPagination {
+) Pagination {
 	return &ListPagination{
 		equipmentRequestService: equipmentRequestService,
 		perPage:                 perPage,
@@ -32,20 +37,25 @@ func NewListPagination(
 	}
 }
 
-func (l *ListPagination) GetMessageWithButtons() (string, []tgbotapi.InlineKeyboardButton) {
+//GetMessageWithButtons get a message with list of items and pagination buttons
+func (l *ListPagination) GetMessageWithButtons(ctx context.Context) (string, []tgbotapi.InlineKeyboardButton) {
 	outputMsgText := "Here all the equipment requests: \n\n"
 
 	currentPage := l.callbackListData.Page
-	count := l.equipmentRequestService.Count()
+	equipmentRequests, total, err := l.equipmentRequestService.List(ctx, currentPage, l.perPage)
 
-	if count == 0 {
-		return "List with equipment requests is empty", nil
+	if err != nil {
+		logger.ErrorKV(ctx, fmt.Sprintf("%s: equipmentRequestService.List failed", listPaginationLogTag),
+			"err", err,
+			"page", currentPage,
+			"limit", l.perPage,
+		)
+
+		return "Unable to get list of equipment requests for selected page", nil
 	}
 
-	equipmentRequests, err := l.equipmentRequestService.List(currentPage, l.perPage)
-	if err != nil {
-		log.Printf("failed to get list of equipment requests in page %d with limit %d: %v", currentPage, l.perPage, err)
-		return "Unable to get list of equipment requests for selected page", nil
+	if total == 0 {
+		return "List with equipment requests is empty", nil
 	}
 
 	for _, eq := range equipmentRequests {
@@ -70,7 +80,7 @@ func (l *ListPagination) GetMessageWithButtons() (string, []tgbotapi.InlineKeybo
 		buttons = append(buttons, tgbotapi.NewInlineKeyboardButtonData("Previous page", pagePrev.String()))
 	}
 
-	if (l.perPage * (currentPage + 1)) < count {
+	if (l.perPage * (currentPage + 1)) < total {
 		pageNextData, _ := json.Marshal(CallbackListData{
 			Page: currentPage + 1,
 		})

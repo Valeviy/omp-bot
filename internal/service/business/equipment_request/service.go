@@ -1,86 +1,142 @@
 package equipment_request
 
 import (
-	"errors"
-	"fmt"
-	"github.com/ozonmp/omp-bot/internal/app/helpers"
+	"context"
+	"github.com/opentracing/opentracing-go"
+	pb "github.com/ozonmp/bss-equipment-request-api/pkg/bss-equipment-request-api"
+	facadepb "github.com/ozonmp/bss-equipment-request-facade/pkg/bss-equipment-request-facade"
+	"github.com/ozonmp/omp-bot/internal/client/business/equipment_request_api"
+	"github.com/ozonmp/omp-bot/internal/client/business/equipment_request_facade_api"
 	"github.com/ozonmp/omp-bot/internal/model/business"
+	"github.com/pkg/errors"
 )
 
+// ErrNoExistsEquipmentRequest is a "equipment request not founded" error
+var ErrNoExistsEquipmentRequest = errors.Wrap(equipment_request_facade_api.ErrNoExistsEquipmentRequest, "EquipmentRequestService")
+
+// ErrEmptyListEquipmentRequest is a "empty list returned" error
+var ErrEmptyListEquipmentRequest = errors.Wrap(equipment_request_facade_api.ErrNoListEquipmentRequest, "EquipmentRequestService")
+
+// EquipmentRequestService is a interface for equipment request bot
 type EquipmentRequestService interface {
-	Get(equipmentRequestId uint64) (*business.EquipmentRequest, error)
-	List(page uint64, perPage uint64) ([]business.EquipmentRequest, error)
-	Create(equipmentRequest business.EquipmentRequest) (uint64, error)
-	Update(equipmentRequestId uint64, equipmentRequest business.EquipmentRequest) error
-	Remove(equipmentRequestId uint64) (bool, error)
-	Count() uint64
+	Get(ctx context.Context, equipmentRequestID uint64) (*business.EquipmentRequest, error)
+	Remove(ctx context.Context, equipmentRequestID uint64) (bool, error)
+	Create(ctx context.Context, equipmentRequest business.EquipmentRequest) (uint64, error)
+	UpdateStatus(ctx context.Context, equipmentRequestID uint64, status business.EquipmentRequestStatus) (bool, error)
+	UpdateEquipmentID(ctx context.Context, equipmentRequestID uint64, equipmentID uint64) (bool, error)
+
+	List(ctx context.Context, page uint64, perPage uint64) ([]*business.EquipmentRequest, uint64, error)
 }
 
-type DummyEquipmentRequestService struct{}
-
-func NewDummyEquipmentRequestService() *DummyEquipmentRequestService {
-	return &DummyEquipmentRequestService{}
+// BssEquipmentRequestAPIServiceClient is a interface for equipment request api client
+type BssEquipmentRequestAPIServiceClient interface {
+	CreateEquipmentRequest(ctx context.Context, equipmentRequest business.EquipmentRequest) (uint64, error)
+	UpdateStatusEquipmentRequest(ctx context.Context, equipmentRequestID uint64, status business.EquipmentRequestStatus) (bool, error)
+	UpdateEquipmentIDEquipmentRequest(ctx context.Context, equipmentRequestID uint64, equipmentID uint64) (bool, error)
+	RemoveEquipmentRequest(ctx context.Context, equipmentRequestID uint64) (bool, error)
 }
 
-func (s *DummyEquipmentRequestService) List(page uint64, perPage uint64) ([]business.EquipmentRequest, error) {
-	offset := page * perPage
-	limit := offset + perPage
-	count := s.Count()
-	limit = helpers.Min(limit, s.Count())
+// BssEquipmentRequestFacadeAPIServiceClient is a interface for equipment request facade api client
+type BssEquipmentRequestFacadeAPIServiceClient interface {
+	ListEquipmentRequest(ctx context.Context, limit uint64, offset uint64) ([]*business.EquipmentRequest, uint64, error)
+	DescribeEquipmentRequest(ctx context.Context, equipmentRequestID uint64) (*business.EquipmentRequest, error)
+}
 
-	if offset > limit || offset > count {
-		return nil, errors.New(fmt.Sprintf("out of bounds with page %d and per page %d", page, perPage))
+type equipmentRequestService struct {
+	apiClient    BssEquipmentRequestAPIServiceClient
+	facadeClient BssEquipmentRequestFacadeAPIServiceClient
+}
+
+// NewEquipmentRequestService returns EquipmentRequestService
+func NewEquipmentRequestService(apiClient pb.BssEquipmentRequestApiServiceClient, facadeClient facadepb.BssEquipmentRequestFacadeApiServiceClient) EquipmentRequestService {
+	return &equipmentRequestService{
+		apiClient:    equipment_request_api.NewBssEquipmentRequestAPIServiceClient(apiClient),
+		facadeClient: equipment_request_facade_api.NewBssEquipmentRequestFacadeAPIServiceClient(facadeClient),
 	}
-	return business.AllEquipmentRequests.List[offset:limit], nil
 }
 
-func (s *DummyEquipmentRequestService) Get(equipmentRequestId uint64) (*business.EquipmentRequest, error) {
-	return s.get(equipmentRequestId)
-}
+func (s *equipmentRequestService) Get(ctx context.Context, equipmentRequestID uint64) (*business.EquipmentRequest, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "equipmentRequestService.Get")
+	defer span.Finish()
 
-func (s *DummyEquipmentRequestService) Remove(equipmentRequestId uint64) (bool, error) {
-	for i := range business.AllEquipmentRequests.List {
-		if business.AllEquipmentRequests.List[i].Id == equipmentRequestId {
-			business.AllEquipmentRequests.List = append(business.AllEquipmentRequests.List[:i], business.AllEquipmentRequests.List[i+1:]...)
+	equipmentRequest, err := s.facadeClient.DescribeEquipmentRequest(ctx, equipmentRequestID)
 
-			return true, nil
-		}
-	}
-	return false, errors.New(fmt.Sprintf("index out of range %d", equipmentRequestId))
-}
-func (s *DummyEquipmentRequestService) Create(equipmentRequest business.EquipmentRequest) (uint64, error) {
-	itemId := business.AllEquipmentRequests.LastId + 1
-	equipmentRequest.Id = itemId
-	business.AllEquipmentRequests.List = append(business.AllEquipmentRequests.List, equipmentRequest)
-	business.AllEquipmentRequests.LastId = itemId
-	return itemId, nil
-}
-
-func (s *DummyEquipmentRequestService) Update(equipmentRequestId uint64, equipmentRequest business.EquipmentRequest) error {
-	item, err := s.get(equipmentRequestId)
 	if err != nil {
-		return err
-	}
-
-	item.DoneAt = equipmentRequest.DoneAt
-	item.CreatedAt = equipmentRequest.CreatedAt
-	item.EquipmentId = equipmentRequest.EquipmentId
-	item.EquipmentType = equipmentRequest.EquipmentType
-	item.Status = equipmentRequest.Status
-	item.EmployeeId = equipmentRequest.EmployeeId
-
-	return nil
-}
-
-func (s *DummyEquipmentRequestService) Count() uint64 {
-	return uint64(len(business.AllEquipmentRequests.List))
-}
-
-func (s *DummyEquipmentRequestService) get(equipmentRequestId uint64) (*business.EquipmentRequest, error) {
-	for i := range business.AllEquipmentRequests.List {
-		if business.AllEquipmentRequests.List[i].Id == equipmentRequestId {
-			return &business.AllEquipmentRequests.List[i], nil
+		if errors.Is(err, equipment_request_facade_api.ErrNoExistsEquipmentRequest) {
+			return nil, ErrNoExistsEquipmentRequest
 		}
+		return nil, err
 	}
-	return nil, errors.New(fmt.Sprintf("index out of range %d", equipmentRequestId))
+
+	return equipmentRequest, nil
+}
+
+func (s *equipmentRequestService) Remove(ctx context.Context, equipmentRequestID uint64) (bool, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "equipmentRequestService.Remove")
+	defer span.Finish()
+
+	removed, err := s.apiClient.RemoveEquipmentRequest(ctx, equipmentRequestID)
+
+	if err != nil {
+		return false, err
+	}
+
+	return removed, nil
+}
+
+func (s *equipmentRequestService) Create(ctx context.Context, equipmentRequest business.EquipmentRequest) (uint64, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "equipmentRequestService.Create")
+	defer span.Finish()
+
+	requestID, err := s.apiClient.CreateEquipmentRequest(ctx, equipmentRequest)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return requestID, nil
+}
+
+func (s *equipmentRequestService) UpdateStatus(ctx context.Context, equipmentRequestID uint64, status business.EquipmentRequestStatus) (bool, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "equipmentRequestService.UpdateStatus")
+	defer span.Finish()
+
+	updated, err := s.apiClient.UpdateStatusEquipmentRequest(ctx, equipmentRequestID, status)
+
+	if err != nil {
+		return false, err
+	}
+
+	return updated, nil
+}
+
+func (s *equipmentRequestService) UpdateEquipmentID(ctx context.Context, equipmentRequestID uint64, equipmentID uint64) (bool, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "equipmentRequestService.UpdateEquipmentID")
+	defer span.Finish()
+
+	updated, err := s.apiClient.UpdateEquipmentIDEquipmentRequest(ctx, equipmentRequestID, equipmentID)
+
+	if err != nil {
+		return false, err
+	}
+
+	return updated, nil
+}
+
+func (s *equipmentRequestService) List(ctx context.Context, page uint64, perPage uint64) ([]*business.EquipmentRequest, uint64, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "equipmentRequestService.List")
+	defer span.Finish()
+
+	offset := page * perPage
+
+	requests, total, err := s.facadeClient.ListEquipmentRequest(ctx, perPage, offset)
+
+	if err != nil {
+		if errors.Is(err, equipment_request_facade_api.ErrNoListEquipmentRequest) {
+			return nil, 0, ErrEmptyListEquipmentRequest
+		}
+		return nil, 0, err
+	}
+
+	return requests, total, nil
 }

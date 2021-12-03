@@ -1,0 +1,38 @@
+project:
+  name: Ozon Code Platform Business Equipment Request Bot
+  debug: true
+  environment: development
+  serviceName: omp_bot
+  serviceVersion: 1.0.0
+
+bot:
+  debug: true
+  timeout: 50
+  connectAttempts: 3
+  perPage: 5
+
+telemetry:
+  graylogPath: host.docker.internal:12205
+
+metrics:
+  host: 0.0.0.0
+  port: 9100
+  path: /metrics
+
+jaeger:
+  service: "omp-bot"
+  host: "host.docker.internal"
+  port: ":6835"
+
+status:
+  host: 0.0.0.0
+  port: 8000
+  livenessPath: /live
+  readinessPath: /ready
+  versionPath: /version
+
+equipmentRequestApi:
+  address: "host.docker.internal:8082"
+
+equipmentRequestFacadeApi:
+  address: "host.docker.internal:8086"

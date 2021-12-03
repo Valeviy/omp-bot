@@ -1,14 +1,18 @@
 package subdomain
 
 import (
+	"context"
 	"encoding/json"
-	"log"
-
+	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/ozonmp/omp-bot/internal/app/path"
+	"github.com/ozonmp/omp-bot/internal/logger"
 )
 
-func (c *DemoSubdomainCommander) List(inputMessage *tgbotapi.Message) {
+const listCommandLogTag = "GetCommand"
+
+//List handles /list command
+func (c *demoSubdomainCommander) List(ctx context.Context, inputMessage *tgbotapi.Message) {
 	outputMsgText := "Here all the products: \n\n"
 
 	products := c.subdomainService.List()
@@ -38,6 +42,8 @@ func (c *DemoSubdomainCommander) List(inputMessage *tgbotapi.Message) {
 
 	_, err := c.bot.Send(msg)
 	if err != nil {
-		log.Printf("DemoSubdomainCommander.List: error sending reply message to chat - %v", err)
+		logger.ErrorKV(ctx, fmt.Sprintf("%s: bot.Send failed send reply message to chat", listCommandLogTag),
+			"err", err,
+		)
 	}
 }

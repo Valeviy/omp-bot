@@ -1,29 +1,48 @@
 package equipment_request
 
 import (
+	"context"
+	"errors"
 	"fmt"
-	"log"
+	"github.com/ozonmp/omp-bot/internal/logger"
+	"github.com/ozonmp/omp-bot/internal/service/business/equipment_request"
 	"strconv"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-func (c *EquipmentRequestCommander) Get(inputMessage *tgbotapi.Message) {
+const getCommandLogTag = "GetCommand"
+
+//Get handles /get command
+func (c *equipmentRequestCommander) Get(ctx context.Context, inputMessage *tgbotapi.Message) {
 	args := inputMessage.CommandArguments()
 
 	idx, err := strconv.ParseUint(args, 10, 64)
 	if err != nil {
-		log.Printf("invalid format of argument id %s: %v", args, err)
-		c.sendMessage(inputMessage.Chat.ID, "Invalid format of argument id: it should be positive integer number")
+		logger.ErrorKV(ctx, fmt.Sprintf("%s: invalid format of argument id", getCommandLogTag),
+			"err", err,
+			"equipmentRequestId", idx,
+		)
+
+		c.sendMessage(ctx, inputMessage.Chat.ID, "Invalid format of argument id: it should be positive integer number")
 		return
 	}
 
-	equipmentRequest, err := c.equipmentRequestService.Get(idx)
+	equipmentRequest, err := c.equipmentRequestService.Get(ctx, idx)
 	if err != nil {
-		log.Printf("fail to get equipment request with id %d: %v", idx, err)
-		c.sendMessage(inputMessage.Chat.ID, fmt.Sprintf("Fail to get equipment request with id: %d", idx))
+		logger.ErrorKV(ctx, fmt.Sprintf("%s: fail to get equipment request by id", getCommandLogTag),
+			"err", err,
+			"equipmentRequestId", idx,
+		)
+
+		if errors.Is(err, equipment_request.ErrNoExistsEquipmentRequest) {
+			c.sendMessage(ctx, inputMessage.Chat.ID, fmt.Sprintf("Equipment request with this id does not exist: %d", idx))
+			return
+		}
+
+		c.sendMessage(ctx, inputMessage.Chat.ID, fmt.Sprintf("Fail to get equipment request with id: %d", idx))
 		return
 	}
 
-	c.sendMessage(inputMessage.Chat.ID, equipmentRequest.String())
+	c.sendMessage(ctx, inputMessage.Chat.ID, equipmentRequest.String())
 }
