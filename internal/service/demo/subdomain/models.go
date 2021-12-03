@@ -8,6 +8,7 @@ var allEntities = []Subdomain{
 	{Title: "five"},
 }
 
+//Subdomain is a demo struct
 type Subdomain struct {
 	Title string
 }
